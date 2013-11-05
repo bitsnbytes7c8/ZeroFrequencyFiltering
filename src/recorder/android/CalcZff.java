@@ -37,7 +37,7 @@ public class CalcZff extends Activity {
 
 	boolean playingOriginal = true, playingNew = true;
 
-
+	/* Calculates slope of zff signal at each point */
 	private void calcSlope() {
 		slope = new float[size];
 		for(int i=1; i<size-1; i++) {
@@ -45,6 +45,7 @@ public class CalcZff extends Activity {
 		}
 	}
 
+	/* writes silence-removed signal to wav file */
 	private void writeToFile(String filePath) {
 		short nChannels = 1;
 		int sRate = 16000;
@@ -77,7 +78,7 @@ public class CalcZff extends Activity {
 			randomAccessWriter = new RandomAccessFile(filePath, "rw");
 			randomAccessWriter.setLength(0); // Set file length to 0, to prevent unexpected behaviour in case the file already existed
 			randomAccessWriter.writeBytes("RIFF");
-			randomAccessWriter.writeInt(Integer.reverseBytes(36+data.length)); // Final file size not known yet, write 0 
+			randomAccessWriter.writeInt(Integer.reverseBytes(36+data.length)); // File length 
 			randomAccessWriter.writeBytes("WAVE");
 			randomAccessWriter.writeBytes("fmt ");
 			randomAccessWriter.writeInt(Integer.reverseBytes(16)); // Sub-chunk size, 16 for PCM
@@ -88,8 +89,8 @@ public class CalcZff extends Activity {
 			randomAccessWriter.writeShort(Short.reverseBytes((short)(nChannels*bSamples/8))); // Block align, NumberOfChannels*BitsPerSample/8
 			randomAccessWriter.writeShort(Short.reverseBytes(bSamples)); // Bits per sample
 			randomAccessWriter.writeBytes("data");
-			randomAccessWriter.writeInt(Integer.reverseBytes(data.length)); // Data chunk size not known yet, write 0
-			randomAccessWriter.write(data);
+			randomAccessWriter.writeInt(Integer.reverseBytes(data.length)); // No. of samples
+			randomAccessWriter.write(data); // Samples
 			randomAccessWriter.close();
 
 		} catch (FileNotFoundException e) {
@@ -186,6 +187,7 @@ public class CalcZff extends Activity {
 		});
 	}
 
+	/* Called on clicking Start/Stop button*/
 	private void onPlay(String fileName, boolean start) {
 		if (start) {
 			startPlaying(fileName);
@@ -194,6 +196,7 @@ public class CalcZff extends Activity {
 		}
 	}
 
+	/* Starts playing given wav file*/
 	private void startPlaying(String fileName) {
 		mPlayer = new MediaPlayer();
 		try {
@@ -205,11 +208,13 @@ public class CalcZff extends Activity {
 		}
 	}
 
+	/*Stops playing*/
 	private void stopPlaying(String fileName) {
 		mPlayer.release();
 		mPlayer = null;
 	}
 
+	/* Builds FIR filter */
 	int build_zff(int n) {
 		int win = 2*n;
 		fir = new float[10*n];
@@ -259,6 +264,7 @@ public class CalcZff extends Activity {
 		return count*2-1;
 	}
 
+	/* Applies the filter to signal */
 	void zff_mat(int dim, int n) {
 		int w = (dim + 1)/2;
 		int i1;
