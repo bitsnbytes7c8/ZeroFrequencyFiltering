@@ -6,26 +6,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
 
-import org.achartengine.ChartFactory;
-import org.achartengine.GraphicalView;
-import org.achartengine.model.*;
-import org.achartengine.renderer.XYMultipleSeriesRenderer;
-import org.achartengine.renderer.XYSeriesRenderer;
-
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Environment;
 import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Context;
 import android.util.Log;
-import android.view.Menu;
-import android.widget.LinearLayout;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.Button;
 
 public class CalcZff extends Activity {
 
@@ -34,57 +27,25 @@ public class CalcZff extends Activity {
 	byte[] data;
 	String mFileName;
 	int size;
-
-	private GraphicalView mChart;
+	Button originalButton, newButton;
 
 	private String outFilePath = null;
 
 	ProgressDialog progress;
 
-	private XYMultipleSeriesDataset mDataset = new XYMultipleSeriesDataset();
+	private MediaPlayer   mPlayer = null;
 
-	private XYMultipleSeriesRenderer mRenderer = new XYMultipleSeriesRenderer();
+	boolean playingOriginal = true, playingNew = true;
 
-	private XYSeries mCurrentSeries;
-
-	private XYSeriesRenderer mCurrentRenderer;
-
-	private void initChart() {
-		mCurrentSeries = new XYSeries("Sample Data");
-		mDataset.addSeries(mCurrentSeries);
-		mCurrentRenderer = new XYSeriesRenderer();
-		mRenderer.addSeriesRenderer(mCurrentRenderer);
-	}
-
-	private void addSampleData() {
-
-		Log.d("Size ", "......................" + Integer.toString(size));
-		int last = 0;
-		for(int i=0; i<size; i++) {
-			if(zff[i] > 1 || zff[i] < -1) {
-				if(i-last >= 1000) {
-					zff[i]  = zff[i] * 10;
-				}
-				last = i;
-			}
-			mCurrentSeries.add(i, zff[i]);
-			//	Log.d("i......" , Integer.toString(i));
-		}
-		/*mCurrentSeries.add(1, 2);
-        mCurrentSeries.add(2, 3);
-        mCurrentSeries.add(3, 2);
-        mCurrentSeries.add(4, 5);
-        mCurrentSeries.add(5, 4);*/
-	}
 
 	private void calcSlope() {
-    	slope = new float[size];
-    	for(int i=1; i<size-1; i++) {
-    		slope[i] = Math.abs(zff[i+1] - zff[i]);
-    	}
-    }
+		slope = new float[size];
+		for(int i=1; i<size-1; i++) {
+			slope[i] = Math.abs(zff[i+1] - zff[i]);
+		}
+	}
 
-    private void writeToFile(String filePath) {
+	private void writeToFile(String filePath) {
 		short nChannels = 1;
 		int sRate = 16000;
 		short bSamples = 16;
@@ -139,7 +100,7 @@ public class CalcZff extends Activity {
 			e.printStackTrace();
 		}
 	}
-    
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -149,8 +110,6 @@ public class CalcZff extends Activity {
 		mFileName = Environment.getExternalStorageDirectory().getAbsolutePath();
 		mFileName += "/audiofile.wav";
 		Log.d("Audio filename-------", mFileName);
-
-		float[] input = new float[1000000];
 
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		try {
@@ -171,17 +130,15 @@ public class CalcZff extends Activity {
 		}
 
 		byte[] audioBytes = out.toByteArray();
-
+		a = new float[1000000];
 		size = 0;
 		for(int i=44, j=0; (i+1)<audioBytes.length; i+=2, j++)
 		{
-			input[j] = (audioBytes[i+0] & 0xFF) | ((audioBytes[i+1] << 8));
-			input[j] *= 3.0517578125e-5f;
+			a[j] = (audioBytes[i+0] & 0xFF) | ((audioBytes[i+1] << 8));
+			a[j] *= 3.0517578125e-5f;
 			size++;
 		}	
 
-
-		a = input;
 
 		conv2 = new float[1000000];
 
@@ -191,68 +148,63 @@ public class CalcZff extends Activity {
 		zff_mat(dim,size);
 
 
-		String data = "";
-
-		OutputStreamWriter outputStreamWriter = null;
-
 		outFilePath = Environment.getExternalStorageDirectory().getAbsolutePath();
 		outFilePath += "/outAudioFile.wav";
 		calcSlope();
 		writeToFile(outFilePath);
-		finish();
-
-		Log.d("Location---------------", getFilesDir().toString()+"/output.txt");
-
-		/*try {
-			outputStreamWriter = new OutputStreamWriter(openFileOutput("output.txt", Context.MODE_PRIVATE));
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-
-
-		for(int i=0; i<size; i++) {
-			data = Float.toString(zff[i]) + "\n";
-			try {
-				outputStreamWriter.write(data);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			//Log.d("",Float.toString(zff[i]));
-			//data  += Float.toString(zff[i]) + "\n";
-		}
-		try {
-			outputStreamWriter.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}*/
-		/*try {
-	        OutputStreamWriter outputStreamWriter = new OutputStreamWriter(openFileOutput("output.txt", Context.MODE_PRIVATE));
-	        outputStreamWriter.write(data);
-	        outputStreamWriter.close();
-	    }
-	    catch (IOException e) {
-	        Log.e("Exception", "File write failed: " + e.toString());
-	    } */
 
 		setContentView(R.layout.chart);
+		originalButton = (Button) findViewById(R.id.OriginalButton);
+		newButton = (Button) findViewById(R.id.NewButton);
+		originalButton.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				onPlay(mFileName, playingOriginal);
+				if(playingOriginal) {
+					originalButton.setText("Stop Playing Original");
+				}
+				else {
+					originalButton.setText("Start Playing Original");
+				}
+				playingOriginal = !playingOriginal;
+			}
+		});
+		newButton.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				onPlay(outFilePath, playingNew);
+				if(playingNew) {
+					newButton.setText("Stop Playing New");
+				} else {
+					newButton.setText("Start Playing New");
+				}
+				playingNew = !playingNew;
+			}
+
+		});
 	}
 
-	/*protected void onResume() {
-		super.onResume();
-		LinearLayout layout = (LinearLayout) findViewById(R.id.chart);
-		if (mChart == null) {
-			initChart();
-			addSampleData();
-			mChart = ChartFactory.getCubeLineChartView(this, mDataset, mRenderer, 0.3f);
-			layout.addView(mChart);
+	private void onPlay(String fileName, boolean start) {
+		if (start) {
+			startPlaying(fileName);
 		} else {
-			mChart.repaint();
-		}*
-	}*/
+			stopPlaying(fileName);
+		}
+	}
+
+	private void startPlaying(String fileName) {
+		mPlayer = new MediaPlayer();
+		try {
+			mPlayer.setDataSource(fileName);
+			mPlayer.prepare();
+			mPlayer.start();
+		} catch (IOException e) {
+			Log.e("Playing.........", "prepare() failed");
+		}
+	}
+
+	private void stopPlaying(String fileName) {
+		mPlayer.release();
+		mPlayer = null;
+	}
 
 	int build_zff(int n) {
 		int win = 2*n;

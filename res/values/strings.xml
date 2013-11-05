@@ -2,6 +2,6 @@
 <resources>
 
     <string name="hello"></string>
-    <string name="app_name">Recorder</string>
+    <string name="app_name">Zero Frequency Filtering</string>
 
 </resources>

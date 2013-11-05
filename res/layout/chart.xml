@@ -4,10 +4,27 @@
     android:layout_height="match_parent"
     tools:context=".VoiceRecord" >
     
-  <LinearLayout
-        android:id="@+id/chart"
-        android:orientation="vertical"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"/>
+  <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:text="ZFF" />
+    
+    <Button
+        android:layout_height="wrap_content"
+        android:layout_width = "wrap_content"
+        android:text = "Play Original"
+        android:id = "@+id/OriginalButton"
+        android:onClick = "clickRecord"/>
+    
+    <Button 
+        android:id = "@+id/NewButton"
+        android:layout_height = "wrap_content"
+        android:layout_width = "wrap_content"
+        android:onClick = "clickPlay"
+        android:text = "Play Modified"
+        android:layout_toRightOf="@id/OriginalButton"/>
+    
   
   </RelativeLayout>
