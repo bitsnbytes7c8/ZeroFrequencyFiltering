@@ -53,7 +53,7 @@ public class CalcZff extends Activity {
 		int nSamples = 0;
 		for(int i=0; i<size-1; i++) {
 			//audioShorts[i] = Short.reverseBytes((short)(zff[i]*0x8000));
-			if(slope[i] >= 0.02) {
+			if(slope[i] >= 0.025) {
 				audioShorts[nSamples] = Short.reverseBytes((short)(a[i]*0x8000));
 				audioShorts[nSamples+1] = Short.reverseBytes((short)(a[i+1]*0x8000));
 				nSamples += 2;
@@ -160,9 +160,11 @@ public class CalcZff extends Activity {
 			public void onClick(View v) {
 				onPlay(mFileName, playingOriginal);
 				if(playingOriginal) {
+					newButton.setEnabled(false);
 					originalButton.setText("Stop Playing Original");
 				}
 				else {
+					newButton.setEnabled(true);
 					originalButton.setText("Start Playing Original");
 				}
 				playingOriginal = !playingOriginal;
@@ -172,8 +174,10 @@ public class CalcZff extends Activity {
 			public void onClick(View v) {
 				onPlay(outFilePath, playingNew);
 				if(playingNew) {
+					originalButton.setEnabled(false);
 					newButton.setText("Stop Playing New");
 				} else {
+					originalButton.setEnabled(true);
 					newButton.setText("Start Playing New");
 				}
 				playingNew = !playingNew;

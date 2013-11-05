@@ -28,7 +28,7 @@ public class RecorderActivity extends Activity {
     
     private AudioRecorder audioRecorder = null;
 
-    private PlayButton   mPlayButton = null;
+   // private PlayButton   mPlayButton = null;
     private MediaPlayer   mPlayer = null;
 
     private void onRecord(boolean start) {
@@ -116,7 +116,7 @@ public class RecorderActivity extends Activity {
         }
     }
 
-    class PlayButton extends Button {
+    /*class PlayButton extends Button {
         boolean mStartPlaying = true;
 
         OnClickListener clicker = new OnClickListener() {
@@ -136,7 +136,7 @@ public class RecorderActivity extends Activity {
             setText("Start playing");
             setOnClickListener(clicker);
         }
-    }
+    }*/
 
     public RecorderActivity() {
         mFileName = Environment.getExternalStorageDirectory().getAbsolutePath();
@@ -154,12 +154,12 @@ public class RecorderActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 0));
-        mPlayButton = new PlayButton(this);
+       /* mPlayButton = new PlayButton(this);
         ll.addView(mPlayButton,
             new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                0));
+                0));*/
         setContentView(ll);
     }
 
