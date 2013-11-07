@@ -26,5 +26,22 @@
         android:text = "Play Modified"
         android:layout_toRightOf="@id/OriginalButton"/>
     
+    <Button
+        android:id = "@+id/playFast"
+        android:layout_height= "wrap_content"
+        android:layout_width="wrap_content"
+        android:onClick = "playFast"
+        android:text="Fast Play"
+        android:layout_below="@id/OriginalButton"/>
+    
+    <Button
+        android:id = "@+id/playSlow"
+        android:layout_height = "wrap_content"
+        android:layout_width = "wrap_content"
+        android:onClick = "playSlow"
+        android:text="Slow Play"
+        android:layout_below = "@id/NewButton"
+        android:layout_toRightOf = "@id/playFast"/>
+    
   
   </RelativeLayout>

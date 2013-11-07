@@ -10,11 +10,14 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 
+import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.SoundPool;
 import android.os.Bundle;
 import android.os.Environment;
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -25,9 +28,12 @@ public class CalcZff extends Activity {
 	float[] fir, conv, zff, conv2, a, slope;
 	short[] audioShorts, finalShorts;
 	byte[] data;
+	float slopeThreshold = (float) 0.025;
 	String mFileName;
 	int size;
-	Button originalButton, newButton;
+	Button originalButton, newButton, fastButton, slowButton;
+	
+	SoundPool soundPool;
 
 	private String outFilePath = null;
 
@@ -35,7 +41,7 @@ public class CalcZff extends Activity {
 
 	private MediaPlayer   mPlayer = null;
 
-	boolean playingOriginal = true, playingNew = true;
+	boolean playingOriginal = true, playingNew = true, playingFast = true, playingSlow = true;
 
 	/* Calculates slope of zff signal at each point */
 	private void calcSlope() {
@@ -54,7 +60,7 @@ public class CalcZff extends Activity {
 		int nSamples = 0;
 		for(int i=0; i<size-1; i++) {
 			//audioShorts[i] = Short.reverseBytes((short)(zff[i]*0x8000));
-			if(slope[i] >= 0.025) {
+			if(slope[i] >= slopeThreshold) { // Voice region -- Should be written to output
 				audioShorts[nSamples] = Short.reverseBytes((short)(a[i]*0x8000));
 				audioShorts[nSamples+1] = Short.reverseBytes((short)(a[i+1]*0x8000));
 				nSamples += 2;
@@ -90,7 +96,7 @@ public class CalcZff extends Activity {
 			randomAccessWriter.writeShort(Short.reverseBytes(bSamples)); // Bits per sample
 			randomAccessWriter.writeBytes("data");
 			randomAccessWriter.writeInt(Integer.reverseBytes(data.length)); // No. of samples
-			randomAccessWriter.write(data); // Samples
+			randomAccessWriter.write(data);
 			randomAccessWriter.close();
 
 		} catch (FileNotFoundException e) {
@@ -157,29 +163,75 @@ public class CalcZff extends Activity {
 		setContentView(R.layout.chart);
 		originalButton = (Button) findViewById(R.id.OriginalButton);
 		newButton = (Button) findViewById(R.id.NewButton);
+		fastButton = (Button) findViewById(R.id.playFast);
+		slowButton = (Button) findViewById(R.id.playSlow);
+		fastButton.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				onPlay(outFilePath, playingFast, 1.7f);
+				if(playingFast) {
+					newButton.setEnabled(false);
+					slowButton.setEnabled(false);
+					originalButton.setEnabled(false);
+					fastButton.setText("Stop Playing");
+				} else {
+					originalButton.setEnabled(true);
+					newButton.setEnabled(true);
+					slowButton.setEnabled(true);
+					fastButton.setText("Play Fast");
+				}
+				playingFast = !playingFast;
+			}
+
+		});
+		slowButton.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				onPlay(outFilePath, playingSlow, 0.7f);
+				if(playingSlow) {
+					newButton.setEnabled(false);
+					fastButton.setEnabled(false);
+					originalButton.setEnabled(false);
+					slowButton.setText("Stop Playing");
+				} else {
+					originalButton.setEnabled(true);
+					newButton.setEnabled(true);
+					fastButton.setEnabled(true);
+					slowButton.setText("Play Slow");
+				}
+				playingSlow = !playingSlow;
+			}
+
+		});
 		originalButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				onPlay(mFileName, playingOriginal);
+				onPlay(mFileName, playingOriginal, 1.0f);
 				if(playingOriginal) {
 					newButton.setEnabled(false);
-					originalButton.setText("Stop Playing Original");
+					fastButton.setEnabled(false);
+					slowButton.setEnabled(false);
+					originalButton.setText("Stop Playing");
 				}
 				else {
 					newButton.setEnabled(true);
-					originalButton.setText("Start Playing Original");
+					fastButton.setEnabled(true);
+					slowButton.setEnabled(true);
+					originalButton.setText("Play Original");
 				}
 				playingOriginal = !playingOriginal;
 			}
 		});
 		newButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				onPlay(outFilePath, playingNew);
+				onPlay(outFilePath, playingNew, 1.0f);
 				if(playingNew) {
+					fastButton.setEnabled(false);
+					slowButton.setEnabled(false);
 					originalButton.setEnabled(false);
-					newButton.setText("Stop Playing New");
+					newButton.setText("Stop Playing");
 				} else {
 					originalButton.setEnabled(true);
-					newButton.setText("Start Playing New");
+					fastButton.setEnabled(true);
+					slowButton.setEnabled(true);
+					newButton.setText("Play Modified");
 				}
 				playingNew = !playingNew;
 			}
@@ -188,30 +240,38 @@ public class CalcZff extends Activity {
 	}
 
 	/* Called on clicking Start/Stop button*/
-	private void onPlay(String fileName, boolean start) {
+	private void onPlay(String fileName, boolean start, float playbackRate) {
 		if (start) {
-			startPlaying(fileName);
+			startPlaying(fileName, playbackRate);
 		} else {
 			stopPlaying(fileName);
 		}
 	}
 
 	/* Starts playing given wav file*/
-	private void startPlaying(String fileName) {
-		mPlayer = new MediaPlayer();
+	private void startPlaying(String fileName, float playbackRate) {
+		final float pb = playbackRate;
+		soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 100);
+		final int soundId = soundPool.load(fileName, 1);
+		AudioManager mgr = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+		final float volume = mgr.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        soundPool.play(soundId, volume, volume, 1, 0, pb);
+		/*mPlayer = new MediaPlayer();
 		try {
 			mPlayer.setDataSource(fileName);
 			mPlayer.prepare();
 			mPlayer.start();
 		} catch (IOException e) {
 			Log.e("Playing.........", "prepare() failed");
-		}
+		}*/
 	}
 
 	/*Stops playing*/
 	private void stopPlaying(String fileName) {
-		mPlayer.release();
-		mPlayer = null;
+		int soundId = soundPool.load(fileName, 1);
+		soundPool.stop(soundId);
+		/*mPlayer.release();
+		mPlayer = null;*/
 	}
 
 	/* Builds FIR filter */
