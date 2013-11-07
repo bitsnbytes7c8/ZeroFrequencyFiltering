@@ -13,8 +13,10 @@ import java.nio.ShortBuffer;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.SoundPool;
+import android.media.SoundPool.OnLoadCompleteListener;
 import android.os.Bundle;
 import android.os.Environment;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -33,7 +35,7 @@ public class CalcZff extends Activity {
 	int size;
 	int streamId;
 	Button originalButton, newButton, fastButton, slowButton;
-	
+
 	SoundPool soundPool;
 
 	private String outFilePath = null;
@@ -60,7 +62,8 @@ public class CalcZff extends Activity {
 		audioShorts = new short[size];
 		int nSamples = 0;
 		for(int i=0; i<size-1; i++) {
-			//audioShorts[i] = Short.reverseBytes((short)(zff[i]*0x8000));
+			//audioShorts[i] = Short.reverseBytes((short)(a[i]*0x8000));
+			//nSamples++;
 			if(slope[i] >= slopeThreshold) { // Voice region -- Should be written to output
 				audioShorts[nSamples] = Short.reverseBytes((short)(a[i]*0x8000));
 				audioShorts[nSamples+1] = Short.reverseBytes((short)(a[i+1]*0x8000));
@@ -250,13 +253,20 @@ public class CalcZff extends Activity {
 	}
 
 	/* Starts playing given wav file*/
+	@SuppressLint("NewApi")
 	private void startPlaying(String fileName, float playbackRate) {
 		final float pb = playbackRate;
 		soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 100);
 		final int soundId = soundPool.load(fileName, 1);
 		AudioManager mgr = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 		final float volume = mgr.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        streamId = soundPool.play(soundId, volume, volume, 1, 0, pb);
+		soundPool.setOnLoadCompleteListener(new OnLoadCompleteListener() {
+			@Override
+			public void onLoadComplete(SoundPool soundPool, int sampleId,
+					int status) {
+				streamId = soundPool.play(soundId, volume, volume, 1, 0, pb);
+			}
+		});
 		/*mPlayer = new MediaPlayer();
 		try {
 			mPlayer.setDataSource(fileName);
