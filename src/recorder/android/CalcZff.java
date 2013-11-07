@@ -31,6 +31,7 @@ public class CalcZff extends Activity {
 	float slopeThreshold = (float) 0.025;
 	String mFileName;
 	int size;
+	int streamId;
 	Button originalButton, newButton, fastButton, slowButton;
 	
 	SoundPool soundPool;
@@ -167,7 +168,7 @@ public class CalcZff extends Activity {
 		slowButton = (Button) findViewById(R.id.playSlow);
 		fastButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				onPlay(outFilePath, playingFast, 1.7f);
+				onPlay(outFilePath, playingFast, 1.5f);
 				if(playingFast) {
 					newButton.setEnabled(false);
 					slowButton.setEnabled(false);
@@ -255,7 +256,7 @@ public class CalcZff extends Activity {
 		final int soundId = soundPool.load(fileName, 1);
 		AudioManager mgr = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 		final float volume = mgr.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        soundPool.play(soundId, volume, volume, 1, 0, pb);
+        streamId = soundPool.play(soundId, volume, volume, 1, 0, pb);
 		/*mPlayer = new MediaPlayer();
 		try {
 			mPlayer.setDataSource(fileName);
@@ -268,8 +269,7 @@ public class CalcZff extends Activity {
 
 	/*Stops playing*/
 	private void stopPlaying(String fileName) {
-		int soundId = soundPool.load(fileName, 1);
-		soundPool.stop(soundId);
+		soundPool.stop(streamId);
 		/*mPlayer.release();
 		mPlayer = null;*/
 	}
