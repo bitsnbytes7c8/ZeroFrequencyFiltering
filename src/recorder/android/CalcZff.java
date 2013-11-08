@@ -9,9 +9,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
+import java.util.Random;
 
 import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.media.SoundPool;
 import android.media.SoundPool.OnLoadCompleteListener;
 import android.os.Bundle;
@@ -28,9 +28,14 @@ import android.widget.Button;
 public class CalcZff extends Activity {
 
 	float[] fir, conv, zff, conv2, a, slope;
+	int nSamples;
+	float length = 12800.0f;
+	int noOfSegments;
+	int[] segments, sizeSegments;
+	int[] onezero;
 	short[] audioShorts, finalShorts;
 	byte[] data;
-	float slopeThreshold = (float) 0.025;
+	final float slopeThreshold = (float) 0.027;
 	String mFileName;
 	int size;
 	int streamId;
@@ -42,7 +47,7 @@ public class CalcZff extends Activity {
 
 	ProgressDialog progress;
 
-	private MediaPlayer   mPlayer = null;
+	// private MediaPlayer   mPlayer = null;
 
 	boolean playingOriginal = true, playingNew = true, playingFast = true, playingSlow = true;
 
@@ -54,25 +59,95 @@ public class CalcZff extends Activity {
 		}
 	}
 
+	private void find_segments() {
+		noOfSegments = 0;
+		segments = new int[100000];
+		sizeSegments = new int[100000];
+		nSamples = 0;
+		for(int i=0; i<size;) {
+			float countZero = 0;
+			float chunkSize = length;
+			if(chunkSize > size-i)
+				chunkSize = size-i;
+			for(int j=i; j<i+length && j<size; j++) {
+				if(onezero[j] == 0) {
+					countZero = (float) (countZero + 1.0);
+				}
+			}
+			Log.d("Count Zero-----------", Float.toString(countZero));
+			if(countZero >= 0.6*chunkSize) {
+				i += length/2;
+			}
+			else {
+				/*		for(int j=i; j<i+length && j<size; j++) {
+					audioShorts[nSamples++] = Short.reverseBytes((short)(a[j]*0x8000));
+				}*/
+				if(noOfSegments > 0 && i == segments[noOfSegments-1]+length) {
+					sizeSegments[noOfSegments-1] += chunkSize;
+				}
+				else {
+					segments[noOfSegments] = i;
+					sizeSegments[noOfSegments] = (int) (chunkSize);
+					noOfSegments++;
+				}
+				/*if(noOfSegments 1== 5) {
+					return;
+				}*/
+				i+=length;
+			}
+		}
+		int flag[] = new int[noOfSegments];
+		Random r = new Random();
+		nSamples = 0;
+		int randomSegments = 0;
+		for(int i=0; i<noOfSegments/3; ) {
+			int index = r.nextInt(noOfSegments);
+			if(flag[index] == 1) {
+				continue;
+			}
+			randomSegments++;
+			for(int j=segments[index]; j<segments[index]+sizeSegments[index]; j++) {
+				audioShorts[nSamples++] = Short.reverseBytes((short)(a[j]*0x8000));
+			}
+			for(int j=0; j<500; j++) {
+				audioShorts[nSamples++] = 0;
+			}
+			flag[index] = 1;
+			i++;
+		}
+
+		Log.d("No samples ----------------", Integer.toString(nSamples));
+		Log.d("No segments----------------", Integer.toString(noOfSegments));
+		Log.d("RandomSegments---------------", Integer.toString(randomSegments));
+	}
+
 	/* writes silence-removed signal to wav file */
 	private void writeToFile(String filePath) {
 		short nChannels = 1;
 		int sRate = 16000;
+		// int nSamples2 = 0;
 		short bSamples = 16;
 		audioShorts = new short[size];
-		int nSamples = 0;
+		onezero = new int[size];
 		for(int i=0; i<size-1; i++) {
 			//audioShorts[i] = Short.reverseBytes((short)(a[i]*0x8000));
 			//nSamples++;
 			if(slope[i] >= slopeThreshold) { // Voice region -- Should be written to output
-				audioShorts[nSamples] = Short.reverseBytes((short)(a[i]*0x8000));
-				audioShorts[nSamples+1] = Short.reverseBytes((short)(a[i+1]*0x8000));
-				nSamples += 2;
+				//	audioShorts[nSamples2] = Short.reverseBytes((short)(a[i]*0x8000));
+				//	audioShorts[nSamples2+1] = Short.reverseBytes((short)(a[i+1]*0x8000));
+				//	nSamples2 += 2;
+				onezero[i] = 1;
+				onezero[i+1] = 1;
 				i++;
 			}
-			/*else
-				audioShorts[i] = 0;*/
+			else
+				onezero[i] = 0;
 		}
+		find_segments();
+		zff = a = slope = null;
+		onezero = null;
+		System.gc();
+
 		finalShorts = new short[nSamples];
 		for(int i=0; i<nSamples; i++){
 			finalShorts[i] = audioShorts[i];
@@ -158,6 +233,8 @@ public class CalcZff extends Activity {
 
 		zff_mat(dim,size);
 
+		conv2 = conv = fir = null;
+		System.gc();
 
 		outFilePath = Environment.getExternalStorageDirectory().getAbsolutePath();
 		outFilePath += "/outAudioFile.wav";
