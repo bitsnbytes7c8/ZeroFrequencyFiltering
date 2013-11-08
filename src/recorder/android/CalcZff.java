@@ -29,11 +29,11 @@ public class CalcZff extends Activity {
 
 	float[] fir, conv, zff, conv2, a, slope;
 	int nSamples;
-	float length = 12800.0f;
+	float length = 11200.0f;
 	int noOfSegments;
 	int[] segments, sizeSegments;
 	int[] onezero;
-	short[] audioShorts, finalShorts;
+	short[] audioShorts, finalShorts, initialShorts, zffShorts;
 	byte[] data;
 	final float slopeThreshold = (float) 0.027;
 	String mFileName;
@@ -106,21 +106,88 @@ public class CalcZff extends Activity {
 				continue;
 			}
 			randomSegments++;
-			for(int j=segments[index]; j<segments[index]+sizeSegments[index]; j++) {
-				audioShorts[nSamples++] = Short.reverseBytes((short)(a[j]*0x8000));
-			}
-			for(int j=0; j<500; j++) {
-				audioShorts[nSamples++] = 0;
-			}
 			flag[index] = 1;
 			i++;
+		}
+		
+		for(int i=0; i<noOfSegments; i++) {
+			if(flag[i] == 1) {
+				for(int j=segments[i]; j<segments[i]+sizeSegments[i]; j++) {
+					audioShorts[nSamples++] = Short.reverseBytes((short)(a[j]*0x8000));
+				}
+				for(int j=0; j<500; j++) {
+					audioShorts[nSamples++] = 0;
+				}
+			
+			}			
 		}
 
 		Log.d("No samples ----------------", Integer.toString(nSamples));
 		Log.d("No segments----------------", Integer.toString(noOfSegments));
 		Log.d("RandomSegments---------------", Integer.toString(randomSegments));
 	}
+	
+	private void writeZFFtoFile(String filePath) {
+		short nChannels = 1;
+		int sRate = 16000;
+		int nSamples2 = 0;
+		short bSamples = 16;
+		zffShorts = new short[size];
+		for(int i=0; i<size-1; i++) {
+			//audioShorts[i] = Short.reverseBytes((short)(a[i]*0x8000));
+			//nSamples++;
+			if(slope[i] >= slopeThreshold) { // Voice region -- Should be written to output
+				zffShorts[nSamples2] = Short.reverseBytes((short)(a[i]*0x8000));
+				zffShorts[nSamples2+1] = Short.reverseBytes((short)(a[i+1]*0x8000));
+				nSamples2 += 2;
+				i++;
+			}
+		}
+		
+		zff = a = slope = null;
+		System.gc();
 
+		initialShorts = new short[nSamples2];
+		for(int i=0; i<nSamples2; i++){
+			initialShorts[i] = zffShorts[i];
+		}
+		
+		data = new byte[initialShorts.length*2];
+		ByteBuffer buffer = ByteBuffer.wrap(data);
+		ShortBuffer sbuf = 	buffer.asShortBuffer();
+		sbuf.put(initialShorts);
+		data = buffer.array();
+		Log.d("Data length------------------------------", Integer.toString(data.length));
+		RandomAccessFile randomAccessWriter;
+		try {
+			randomAccessWriter = new RandomAccessFile(filePath, "rw");
+			randomAccessWriter.setLength(0); // Set file length to 0, to prevent unexpected behaviour in case the file already existed
+			randomAccessWriter.writeBytes("RIFF");
+			randomAccessWriter.writeInt(Integer.reverseBytes(36+data.length)); // File length 
+			randomAccessWriter.writeBytes("WAVE");
+			randomAccessWriter.writeBytes("fmt ");
+			randomAccessWriter.writeInt(Integer.reverseBytes(16)); // Sub-chunk size, 16 for PCM
+			randomAccessWriter.writeShort(Short.reverseBytes((short) 1)); // AudioFormat, 1 for PCM
+			randomAccessWriter.writeShort(Short.reverseBytes(nChannels));// Number of channels, 1 for mono, 2 for stereo
+			randomAccessWriter.writeInt(Integer.reverseBytes(sRate)); // Sample rate
+			randomAccessWriter.writeInt(Integer.reverseBytes(sRate*bSamples*nChannels/8)); // Byte rate, SampleRate*NumberOfChannels*BitsPerSample/8
+			randomAccessWriter.writeShort(Short.reverseBytes((short)(nChannels*bSamples/8))); // Block align, NumberOfChannels*BitsPerSample/8
+			randomAccessWriter.writeShort(Short.reverseBytes(bSamples)); // Bits per sample
+			randomAccessWriter.writeBytes("data");
+			randomAccessWriter.writeInt(Integer.reverseBytes(data.length)); // No. of samples
+			randomAccessWriter.write(data);
+			randomAccessWriter.close();
+
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+ 
 	/* writes silence-removed signal to wav file */
 	private void writeToFile(String filePath) {
 		short nChannels = 1;
@@ -144,7 +211,6 @@ public class CalcZff extends Activity {
 				onezero[i] = 0;
 		}
 		find_segments();
-		zff = a = slope = null;
 		onezero = null;
 		System.gc();
 
@@ -185,6 +251,9 @@ public class CalcZff extends Activity {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		audioShorts = finalShorts = null;
+		data = null;
+		System.gc();
 	}
 
 	@Override
@@ -237,9 +306,13 @@ public class CalcZff extends Activity {
 		System.gc();
 
 		outFilePath = Environment.getExternalStorageDirectory().getAbsolutePath();
-		outFilePath += "/outAudioFile.wav";
+		outFilePath += "/randomAudioFile.wav";
 		calcSlope();
 		writeToFile(outFilePath);
+		
+		String outFilePath2 = Environment.getExternalStorageDirectory().getAbsolutePath();
+		outFilePath2 += "/zffOutput.wav";
+		writeZFFtoFile(outFilePath2);
 
 		setContentView(R.layout.chart);
 		originalButton = (Button) findViewById(R.id.OriginalButton);
