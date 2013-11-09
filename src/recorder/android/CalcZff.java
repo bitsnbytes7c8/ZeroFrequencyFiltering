@@ -137,12 +137,13 @@ public class CalcZff extends Activity {
 					audioShorts[nSamples++] = Short.reverseBytes((short)(a[j]*0x8000));
 				}
 				for(int j=0; j<500; j++) {
-					audioShorts[nSamples++] = 5;
+					audioShorts[nSamples++] = 0;
 				}
 
 			}			
 		}
-
+		slope = null;
+		System.gc();
 		Log.d("No samples ----------------", Integer.toString(nSamples));
 		Log.d("No segments----------------", Integer.toString(noOfSegments));
 		Log.d("RandomSegments---------------", Integer.toString(randomSegments));
@@ -154,8 +155,17 @@ public class CalcZff extends Activity {
 		int nSamples2 = 0;
 		short bSamples = 16;
 		zffShorts = new short[size];
+		
+		for(int i=0; i<noOfSegments; i++) {
+			for(int j=segments[i]; j<segments[i]+sizeSegments[i]; j++) {
+				zffShorts[nSamples2++] = Short.reverseBytes((short)(a[j]*0x8000));
+			}
+			for(int j=0; j<500; j++) {
+				zffShorts[nSamples2++] = 0;
+			}
+		}
 	
-		for(int i=0; i<size-1; i++) {
+		/*for(int i=0; i<size-1; i++) {
 			//audioShorts[i] = Short.reverseBytes((short)(a[i]*0x8000));
 			//nSamples++;
 			if(slope[i] >= slopeThreshold) { // Voice region -- Should be written to output
@@ -164,9 +174,7 @@ public class CalcZff extends Activity {
 				nSamples2 += 2;
 				i++;
 			}
-		}
-
-		a = slope = null;
+		}*/
 
 		initialShorts = new short[nSamples2];
 		for(int i=0; i<nSamples2; i++){
@@ -383,6 +391,7 @@ public class CalcZff extends Activity {
 				playingOriginal = !playingOriginal;
 			}
 		});
+		
 		newButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				onPlay(zffFilePath, playingNew, 1.0f);
