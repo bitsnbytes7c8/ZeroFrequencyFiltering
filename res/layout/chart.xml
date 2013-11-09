@@ -14,7 +14,7 @@
     <Button
         android:layout_height="wrap_content"
         android:layout_width = "wrap_content"
-        android:text = "Play Original"
+        android:text = "Original"
         android:id = "@+id/OriginalButton"
         android:onClick = "clickRecord"/>
     
@@ -23,25 +23,18 @@
         android:layout_height = "wrap_content"
         android:layout_width = "wrap_content"
         android:onClick = "clickPlay"
-        android:text = "Play Modified"
+        android:text = "Silence-Removed"
         android:layout_toRightOf="@id/OriginalButton"/>
     
     <Button
-        android:id = "@+id/playFast"
+        android:id = "@+id/playRand"
         android:layout_height= "wrap_content"
         android:layout_width="wrap_content"
         android:onClick = "playFast"
-        android:text="Fast Play"
-        android:layout_below="@id/OriginalButton"/>
+        android:text="Summary"
+        android:layout_toRightOf="@id/NewButton"/>
     
-    <Button
-        android:id = "@+id/playSlow"
-        android:layout_height = "wrap_content"
-        android:layout_width = "wrap_content"
-        android:onClick = "playSlow"
-        android:text="Slow Play"
-        android:layout_below = "@id/NewButton"
-        android:layout_toRightOf = "@id/playFast"/>
+    
     
   
   </RelativeLayout>

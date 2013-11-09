@@ -18,7 +18,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.util.Log;
 import android.view.View;
@@ -28,26 +27,19 @@ import android.widget.Button;
 public class CalcZff extends Activity {
 
 	float[] fir, conv, zff, conv2, a, slope;
-	int nSamples;
-	float length = 11200.0f;
-	int noOfSegments;
-	int[] segments, sizeSegments;
-	int[] onezero;
+	int nSamples, noOfSegments, size, streamId;
+	float length = 4800.0f;
+	int[] segments, sizeSegments, onezero;
 	short[] audioShorts, finalShorts, initialShorts, zffShorts;
-	byte[] data;
+	byte[] data, audioBytes;
 	final float slopeThreshold = (float) 0.027;
-	String mFileName;
-	int size;
-	int streamId;
+	String mFileName, zffFilePath, randFilePath;
 	Button originalButton, newButton, fastButton, slowButton;
+	ByteArrayOutputStream out;
 
 	SoundPool soundPool;
 
-	private String outFilePath = null;
 
-	ProgressDialog progress;
-
-	// private MediaPlayer   mPlayer = null;
 
 	boolean playingOriginal = true, playingNew = true, playingFast = true, playingSlow = true;
 
@@ -57,9 +49,12 @@ public class CalcZff extends Activity {
 		for(int i=1; i<size-1; i++) {
 			slope[i] = Math.abs(zff[i+1] - zff[i]);
 		}
+		zff = null;
+		System.gc();
 	}
 
 	private void find_segments() {
+		
 		noOfSegments = 0;
 		segments = new int[100000];
 		sizeSegments = new int[100000];
@@ -74,15 +69,40 @@ public class CalcZff extends Activity {
 					countZero = (float) (countZero + 1.0);
 				}
 			}
-			Log.d("Count Zero-----------", Float.toString(countZero));
+			Log.d("Count Zero-----------", Integer.toString(i) +" " +Float.toString(countZero));
 			if(countZero >= 0.6*chunkSize) {
-				i += length/2;
+				Log.d("ChunkSize--------------", Float.toString(chunkSize));
+				chunkSize = chunkSize/4;
+				Log.d("ChunkSizeNow----------", Float.toString(chunkSize));
+				countZero = 0;
+				for(int j=i; j<i+chunkSize && j<size; j++) {
+					if(onezero[j] == 0) {
+						countZero = (float) (countZero + 1.0);
+					}
+				}
+				if(countZero >= 0.6*chunkSize) {
+
+				}
+				else
+				{
+					if(noOfSegments > 0 && i == segments[noOfSegments-1]+sizeSegments[noOfSegments-1]) {
+						sizeSegments[noOfSegments-1] += chunkSize;
+					}
+					else {
+						segments[noOfSegments] = i;
+						sizeSegments[noOfSegments] = (int) (chunkSize);
+						noOfSegments++;
+					}
+				}
+				if(chunkSize < 1.0f) {
+					i += 1;
+				}
+				else {
+					i += chunkSize;
+				}
 			}
 			else {
-				/*		for(int j=i; j<i+length && j<size; j++) {
-					audioShorts[nSamples++] = Short.reverseBytes((short)(a[j]*0x8000));
-				}*/
-				if(noOfSegments > 0 && i == segments[noOfSegments-1]+length) {
+				if(noOfSegments > 0 && i == segments[noOfSegments-1]+sizeSegments[noOfSegments-1]) {
 					sizeSegments[noOfSegments-1] += chunkSize;
 				}
 				else {
@@ -96,6 +116,7 @@ public class CalcZff extends Activity {
 				i+=length;
 			}
 		}
+		Log.d("Size-----------------", Integer.toString(size));
 		int flag[] = new int[noOfSegments];
 		Random r = new Random();
 		nSamples = 0;
@@ -109,16 +130,16 @@ public class CalcZff extends Activity {
 			flag[index] = 1;
 			i++;
 		}
-		
+
 		for(int i=0; i<noOfSegments; i++) {
 			if(flag[i] == 1) {
 				for(int j=segments[i]; j<segments[i]+sizeSegments[i]; j++) {
 					audioShorts[nSamples++] = Short.reverseBytes((short)(a[j]*0x8000));
 				}
 				for(int j=0; j<500; j++) {
-					audioShorts[nSamples++] = 0;
+					audioShorts[nSamples++] = 5;
 				}
-			
+
 			}			
 		}
 
@@ -126,13 +147,14 @@ public class CalcZff extends Activity {
 		Log.d("No segments----------------", Integer.toString(noOfSegments));
 		Log.d("RandomSegments---------------", Integer.toString(randomSegments));
 	}
-	
+
 	private void writeZFFtoFile(String filePath) {
 		short nChannels = 1;
 		int sRate = 16000;
 		int nSamples2 = 0;
 		short bSamples = 16;
 		zffShorts = new short[size];
+	
 		for(int i=0; i<size-1; i++) {
 			//audioShorts[i] = Short.reverseBytes((short)(a[i]*0x8000));
 			//nSamples++;
@@ -143,15 +165,14 @@ public class CalcZff extends Activity {
 				i++;
 			}
 		}
-		
-		zff = a = slope = null;
-		System.gc();
+
+		a = slope = null;
 
 		initialShorts = new short[nSamples2];
 		for(int i=0; i<nSamples2; i++){
 			initialShorts[i] = zffShorts[i];
 		}
-		
+
 		data = new byte[initialShorts.length*2];
 		ByteBuffer buffer = ByteBuffer.wrap(data);
 		ShortBuffer sbuf = 	buffer.asShortBuffer();
@@ -187,7 +208,7 @@ public class CalcZff extends Activity {
 		}
 
 	}
- 
+
 	/* writes silence-removed signal to wav file */
 	private void writeToFile(String filePath) {
 		short nChannels = 1;
@@ -256,35 +277,9 @@ public class CalcZff extends Activity {
 		System.gc();
 	}
 
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		byte[] buff = new byte[1024];
-
-
-		mFileName = Environment.getExternalStorageDirectory().getAbsolutePath();
-		mFileName += "/audiofile.wav";
-		Log.d("Audio filename-------", mFileName);
-
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		try {
-			@SuppressWarnings("resource")
-			BufferedInputStream in = new BufferedInputStream(new FileInputStream(mFileName));
-			int read;
-			while ((read = in.read(buff)) > 0)
-			{
-				out.write(buff, 0, read);
-			}
-			out.flush();
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		byte[] audioBytes = out.toByteArray();
+	private void processBuffer() {
+		audioBytes = out.toByteArray();
+		out = null;
 		a = new float[1000000];
 		size = 0;
 		for(int i=44, j=0; (i+1)<audioBytes.length; i+=2, j++)
@@ -294,7 +289,7 @@ public class CalcZff extends Activity {
 			size++;
 		}	
 
-
+		audioBytes = null;
 		conv2 = new float[1000000];
 
 		int n =10; 
@@ -305,87 +300,100 @@ public class CalcZff extends Activity {
 		conv2 = conv = fir = null;
 		System.gc();
 
-		outFilePath = Environment.getExternalStorageDirectory().getAbsolutePath();
-		outFilePath += "/randomAudioFile.wav";
+		randFilePath = Environment.getExternalStorageDirectory().getAbsolutePath();
+		randFilePath += "/randomAudioFile.wav";
 		calcSlope();
-		writeToFile(outFilePath);
-		
-		String outFilePath2 = Environment.getExternalStorageDirectory().getAbsolutePath();
-		outFilePath2 += "/zffOutput.wav";
-		writeZFFtoFile(outFilePath2);
+		Log.d("RandfilePath-------------------", randFilePath);
+		writeToFile(randFilePath);
+
+		zffFilePath = Environment.getExternalStorageDirectory().getAbsolutePath();
+		zffFilePath += "/zffOutput.wav";
+		Log.d("ZffFilePath---------------------", zffFilePath);
+		writeZFFtoFile(zffFilePath);
+
+		Log.d("Created wav files--------------------------------","");
+
+	}
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		byte[] buff = new byte[1024];
+
+
+		mFileName = Environment.getExternalStorageDirectory().getAbsolutePath();
+		mFileName += "/audiofile.wav";
+		Log.d("Audio filename-------", mFileName);
+
+		out = new ByteArrayOutputStream();
+		try {
+			@SuppressWarnings("resource")
+			BufferedInputStream in = new BufferedInputStream(new FileInputStream(mFileName));
+			int read;
+			while ((read = in.read(buff)) > 0)
+			{
+				out.write(buff, 0, read);
+			}
+			out.flush();
+			processBuffer();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 
 		setContentView(R.layout.chart);
 		originalButton = (Button) findViewById(R.id.OriginalButton);
 		newButton = (Button) findViewById(R.id.NewButton);
-		fastButton = (Button) findViewById(R.id.playFast);
-		slowButton = (Button) findViewById(R.id.playSlow);
+		fastButton = (Button) findViewById(R.id.playRand);
+
 		fastButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				onPlay(outFilePath, playingFast, 1.5f);
+				onPlay(randFilePath, playingFast, 1.0f);
 				if(playingFast) {
 					newButton.setEnabled(false);
-					slowButton.setEnabled(false);
 					originalButton.setEnabled(false);
 					fastButton.setText("Stop Playing");
 				} else {
 					originalButton.setEnabled(true);
 					newButton.setEnabled(true);
-					slowButton.setEnabled(true);
-					fastButton.setText("Play Fast");
+					fastButton.setText("Summary");
 				}
 				playingFast = !playingFast;
 			}
 
 		});
-		slowButton.setOnClickListener(new OnClickListener() {
-			public void onClick(View v) {
-				onPlay(outFilePath, playingSlow, 0.7f);
-				if(playingSlow) {
-					newButton.setEnabled(false);
-					fastButton.setEnabled(false);
-					originalButton.setEnabled(false);
-					slowButton.setText("Stop Playing");
-				} else {
-					originalButton.setEnabled(true);
-					newButton.setEnabled(true);
-					fastButton.setEnabled(true);
-					slowButton.setText("Play Slow");
-				}
-				playingSlow = !playingSlow;
-			}
 
-		});
 		originalButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				onPlay(mFileName, playingOriginal, 1.0f);
 				if(playingOriginal) {
 					newButton.setEnabled(false);
 					fastButton.setEnabled(false);
-					slowButton.setEnabled(false);
 					originalButton.setText("Stop Playing");
 				}
 				else {
 					newButton.setEnabled(true);
 					fastButton.setEnabled(true);
-					slowButton.setEnabled(true);
-					originalButton.setText("Play Original");
+					originalButton.setText("Original");
 				}
 				playingOriginal = !playingOriginal;
 			}
 		});
 		newButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				onPlay(outFilePath, playingNew, 1.0f);
+				onPlay(zffFilePath, playingNew, 1.0f);
 				if(playingNew) {
 					fastButton.setEnabled(false);
-					slowButton.setEnabled(false);
 					originalButton.setEnabled(false);
 					newButton.setText("Stop Playing");
 				} else {
 					originalButton.setEnabled(true);
 					fastButton.setEnabled(true);
-					slowButton.setEnabled(true);
-					newButton.setText("Play Modified");
+					newButton.setText("Silence-Removed");
 				}
 				playingNew = !playingNew;
 			}
@@ -501,7 +509,7 @@ public class CalcZff extends Activity {
 				conv2[i] = tmp;
 			}
 		}
-		zff = new float[10*n];
+		zff = new float[size];
 		for(int i=w-1, j=0; i<n+w-1; i++, j++) {
 			zff[j] = conv2[i];
 		}
