@@ -12,6 +12,7 @@ import java.nio.ShortBuffer;
 import java.util.Random;
 
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.SoundPool;
 import android.media.SoundPool.OnLoadCompleteListener;
 import android.os.Bundle;
@@ -38,10 +39,12 @@ public class CalcZff extends Activity {
 	ByteArrayOutputStream out;
 
 	SoundPool soundPool;
+	
+	MediaPlayer mPlayer;
 
 
 
-	boolean playingOriginal = true, playingNew = true, playingFast = true, playingSlow = true;
+	boolean playingOriginal = true, playingNew = true, playingFast = true;
 
 	/* Calculates slope of zff signal at each point */
 	private void calcSlope() {
@@ -80,10 +83,7 @@ public class CalcZff extends Activity {
 						countZero = (float) (countZero + 1.0);
 					}
 				}
-				if(countZero >= 0.6*chunkSize) {
-
-				}
-				else
+				if(countZero <  0.6*chunkSize)
 				{
 					if(noOfSegments > 0 && i == segments[noOfSegments-1]+sizeSegments[noOfSegments-1]) {
 						sizeSegments[noOfSegments-1] += chunkSize;
@@ -110,9 +110,6 @@ public class CalcZff extends Activity {
 					sizeSegments[noOfSegments] = (int) (chunkSize);
 					noOfSegments++;
 				}
-				/*if(noOfSegments 1== 5) {
-					return;
-				}*/
 				i+=length;
 			}
 		}
@@ -121,7 +118,7 @@ public class CalcZff extends Activity {
 		Random r = new Random();
 		nSamples = 0;
 		int randomSegments = 0;
-		for(int i=0; i<noOfSegments/3; ) {
+		for(int i=0; i<noOfSegments/3 + 1; ) {
 			int index = r.nextInt(noOfSegments);
 			if(flag[index] == 1) {
 				continue;
@@ -226,12 +223,8 @@ public class CalcZff extends Activity {
 		audioShorts = new short[size];
 		onezero = new int[size];
 		for(int i=0; i<size-1; i++) {
-			//audioShorts[i] = Short.reverseBytes((short)(a[i]*0x8000));
-			//nSamples++;
+			
 			if(slope[i] >= slopeThreshold) { // Voice region -- Should be written to output
-				//	audioShorts[nSamples2] = Short.reverseBytes((short)(a[i]*0x8000));
-				//	audioShorts[nSamples2+1] = Short.reverseBytes((short)(a[i+1]*0x8000));
-				//	nSamples2 += 2;
 				onezero[i] = 1;
 				onezero[i+1] = 1;
 				i++;
@@ -288,7 +281,7 @@ public class CalcZff extends Activity {
 	private void processBuffer() {
 		audioBytes = out.toByteArray();
 		out = null;
-		a = new float[1000000];
+		a = new float[2500000];
 		size = 0;
 		for(int i=44, j=0; (i+1)<audioBytes.length; i+=2, j++)
 		{
@@ -298,11 +291,11 @@ public class CalcZff extends Activity {
 		}	
 
 		audioBytes = null;
-		conv2 = new float[1000000];
 
 		int n =10; 
 		int dim = build_zff(n);
-
+		
+		conv2 = new float[size+dim];
 		zff_mat(dim,size);
 
 		conv2 = conv = fir = null;
@@ -422,7 +415,7 @@ public class CalcZff extends Activity {
 	/* Starts playing given wav file*/
 	@SuppressLint("NewApi")
 	private void startPlaying(String fileName, float playbackRate) {
-		final float pb = playbackRate;
+		/*final float pb = playbackRate;
 		soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 100);
 		final int soundId = soundPool.load(fileName, 1);
 		AudioManager mgr = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -433,22 +426,22 @@ public class CalcZff extends Activity {
 					int status) {
 				streamId = soundPool.play(soundId, volume, volume, 1, 0, pb);
 			}
-		});
-		/*mPlayer = new MediaPlayer();
+		});*/
+		mPlayer = new MediaPlayer();
 		try {
 			mPlayer.setDataSource(fileName);
 			mPlayer.prepare();
 			mPlayer.start();
 		} catch (IOException e) {
 			Log.e("Playing.........", "prepare() failed");
-		}*/
+		}
 	}
 
 	/*Stops playing*/
 	private void stopPlaying(String fileName) {
-		soundPool.stop(streamId);
-		/*mPlayer.release();
-		mPlayer = null;*/
+		//soundPool.stop(streamId);
+		mPlayer.release();
+		mPlayer = null;
 	}
 
 	/* Builds FIR filter */
